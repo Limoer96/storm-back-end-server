@@ -32,7 +32,7 @@ router.get('/urls/all', (req, res, next) =>{
     urls.getAll(res);
 });
 
-router.post('/api/tasks/status/update', (req, res) => {
+router.get('/tasks/status/update', (req, res) => {
     var identifier = req.query.identifier;
     var status = req.query.status;
     new model.Tasks_().updateStatus(identifier, status, res);

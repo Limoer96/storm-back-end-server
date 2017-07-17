@@ -121,8 +121,9 @@ Rules.prototype.getAll = function(res) {
   let ids = [];
   let tasks = []; // 待发送的数据
   db.query(`SELECT * FROM news.tasks where status=?`, 'initial', (err, rows) => {
-    if(err){
-      throw err;
+    if(err) throw err;
+    if(rows.length === 0){
+      res.json({count: 0})
     }else{
       for(let task of rows) {
         ids.push(task.identifier);
@@ -137,6 +138,7 @@ Rules.prototype.getAll = function(res) {
       db.query(`UPDATE news.tasks SET status='running' WHERE status=?`, 'initial', (err, result) => {
         if(err) throw err;
       })
+      // 三秒延时...再发送相应
       setTimeout(() => {
         res.json(tasks)
       }, 3000)
@@ -144,22 +146,6 @@ Rules.prototype.getAll = function(res) {
   })
 
 }
-/**
-  identifier: 'Aa',
-  root: 'https://github.com/lin',
-  title_rule: 'html/body/title',
-  content_rule: 'html/body/content',
-  pub_time_rule: 'html/body/pub_time',
-  source_rule: '/html/body/header/do_some',
-  website_name: '腾讯新闻',
-  region: null,
-  country: '中国',
-  language: '简体中文',
-  channel_name: '中国',
-  create_time: 2017-07-08T07:17:01.000Z
-*/
-
-
 
 
 /**
@@ -215,15 +201,19 @@ Tasks.prototype.getAll = function(res) {
 };
 
 Tasks.prototype.updateStatus = function(identifier, status, res) {
+  // 值能把正在run的任务改成complete
     console.log(status);
     var status_list = ['running', 'complete', 'initial'];
     if(status_list.indexOf(status) == -1){
         console.log('run this~'); // 如果有其他值的话就会执行
         res.status(500).send({rollback: 'invalid parmas'});
     }else {
-        db.query(`UPDATE ${this.table} SET status='${status}' where identifier='${identifier}'`, function (err, result) {
+        db.query(`UPDATE ${this.table} SET status='${status}' where identifier='${identifier}' AND status='running'`, function (err, result) {
             if (err) throw err;
-            res.status(200).send({rollback: 'ok~'});
+            if(result.affectedRows === 0){
+              res.status(200).send({rollback: 'none'});
+            }
+              res.status(200).send({rollback: 'ok~'});
         });
     }
 };
@@ -234,11 +224,20 @@ Tasks.prototype.addTask = function(identifier, desc, res) {
     desc: desc,
     status: 'initial'
   };
-  db.query(`INSERT INTO ${this.table} (\`identifier\`, \`desc\`, \`status\`) values ('${identifier}', '${desc}', 'initial')`, function(err, result) {
-    if(err){
-      res.status(200).json({status: 'wrong'});
+  // 如果存在未开始的相同任务，则不可添加新的任务
+  db.query(`SELECT * FROM ${this.table} WHERE identifier=? AND status='initial'`, identifier, (err, rows) => {
+    if(err) throw err;
+    if(rows && rows.length !== 0){
+      // 如果本次已经存在这样一个任务
+      res.status(200).json({status: 'more'});
     }else{
-      res.status(200).json({status: 'ok!'});
+      db.query(`INSERT INTO ${this.table} (\`identifier\`, \`desc\`, \`status\`) values ('${identifier}', '${desc}', 'initial')`, function(err, result) {
+        if(err){
+          res.status(200).json({status: 'wrong'});
+        }else{
+          res.status(200).json({status: 'ok!'});
+        }
+      })
     }
   })
 }
