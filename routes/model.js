@@ -116,6 +116,52 @@ Rules.prototype.getLatest = function (response) {
     });
 };
 
+
+Rules.prototype.getAll = function(res) {
+  let ids = [];
+  let tasks = []; // 待发送的数据
+  db.query(`SELECT * FROM news.tasks where status=?`, 'initial', (err, rows) => {
+    if(err){
+      throw err;
+    }else{
+      for(let task of rows) {
+        ids.push(task.identifier);
+      }
+      console.log(ids);
+      for(let id of ids) {
+        db.query(`SELECT * FROM ${this.table} WHERE identifier=?`, id, (err, rows) => {
+          if(err) throw err;
+          tasks.push(rows[0]);
+        })
+      }
+      db.query(`UPDATE news.tasks SET status='running' WHERE status=?`, 'initial', (err, result) => {
+        if(err) throw err;
+      })
+      setTimeout(() => {
+        res.json(tasks)
+      }, 3000)
+    }
+  })
+
+}
+/**
+  identifier: 'Aa',
+  root: 'https://github.com/lin',
+  title_rule: 'html/body/title',
+  content_rule: 'html/body/content',
+  pub_time_rule: 'html/body/pub_time',
+  source_rule: '/html/body/header/do_some',
+  website_name: '腾讯新闻',
+  region: null,
+  country: '中国',
+  language: '简体中文',
+  channel_name: '中国',
+  create_time: 2017-07-08T07:17:01.000Z
+*/
+
+
+
+
 /**
   { root: 'http://www.limoer.cc',
   title_rule: 'html/body/title',
